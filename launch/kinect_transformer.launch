@@ -1,0 +1,4 @@
+<launch>
+   <arg name="filename" default="output"/>
+   <node pkg="kinect_transformer" name="transformer1" type="kinect_transformer" args="$(arg filename) $(find kinect_transformer)" output="screen"/>
+</launch>

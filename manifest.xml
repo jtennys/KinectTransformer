@@ -1,0 +1,18 @@
+<package>
+  <description brief="kinect_transformer">
+
+     kinect_transformer
+
+  </description>
+  <author>jason</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/kinect_transformer</url>
+  <depend package="roscpp"/>
+  <depend package="pcl_ros"/>
+  <depend package="openni"/>
+  <depend package="opencv2"/>
+  <depend package="sensor_msgs"/>
+</package>
+
+
