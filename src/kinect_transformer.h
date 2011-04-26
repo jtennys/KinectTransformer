@@ -22,6 +22,8 @@
 #include <boost/algorithm/string.hpp>
 #include <Eigen/Geometry>
 #include <pcl/common/transform.hpp>
+#include <std_msgs/Float64.h>
+#include <sensor_msgs/Imu.h>
 
 // The file that the file names and parameters are read from.
 #define PTS_INFO_FILE ("pts_info_file.txt")
@@ -48,6 +50,15 @@
 
 // The delay time in seconds between when the program starts and when a cloud is taken.
 #define CAM_DELAY (5)
+
+// The number of IMU callback iterations we do before deciding upon IMU values.
+#define MAX_IMU_CALLBACKS (100)
+
+// Gravity
+#define GRAVITY (9.80665)
+
+// The gravity threshold value that we have to exceed to assume the kinect is parallel with the ground.
+#define GRAVITY_THRESHOLD (0.95)
 
 // The templated pcl object type.
 typedef pcl::PointXYZRGB PointT;

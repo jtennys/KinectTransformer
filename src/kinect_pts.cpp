@@ -12,11 +12,23 @@
 // The program loops until it gets a point cloud and sets this to true.
 bool DATA_FULL = false;
 
+int NUM_IMU_CALLBACKS = 0;
+
 // The user-specified filename that we are going to save the point cloud data to.
 std::string FILE_NAME = "";
 
 // The file path that we extract from the launch file.
 std::string FILE_PATH = "";
+
+// The tilt publisher is declared public so that the IMU callback can call it
+// based on where the kinect is positioned.
+ros::Publisher TILT_PUB;
+
+// These IMU axis values are public so that each IMU callback averages their
+// values until the program is done running and the data is evaluated.
+float X = 0;
+float Y = 0;
+float Z = 0;
 
 // Accepts a point cloud of type XYZRGB from the callback function and saves
 // its RGB data to a file with the defined image extension.
@@ -24,6 +36,9 @@ void saveImage(const pcl::PointCloud<PointT>::Ptr cloud);
 
 // This function is called when the kinect driver pushes out a point cloud message.
 void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg);
+
+// This function is called when the IMU on the kinect has new data.
+void imuCallback(const sensor_msgs::Imu::Ptr msg);
 
 int main(int argc, char** argv)
 {
@@ -33,25 +48,42 @@ int main(int argc, char** argv)
   // Store the path to the root package directory given by the launch file.
   FILE_PATH = argv[2];
 
-  // This time delay allows you to start the program and walk away if it's in view of the Kinect.
-  ROS_INFO("You now have %d seconds to back away!",CAM_DELAY);
-  sleep(CAM_DELAY);
-  ROS_INFO("Time is up!");
-
   // Initializes the node as a kinect listener.
-  ros::init(argc, argv, "kinect_to_pcd");
+  ros::init(argc, argv, "kinect_to_pts");
 
   // Create an empty node handle.
   ros::NodeHandle n;
 
+  // Create a publisher on the tilt_angle topic so we can set the kinect motor angle.
+  // This publisher is created early so that it can have time to start up.
+  TILT_PUB = n.advertise<std_msgs::Float64>("tilt_angle", 1000);
+
+  ROS_INFO("Aligning the Kinect to be parallel with the ground...");
+
+  // Create a subscriber on the imu topic.
+  ros::Subscriber imu_sub = n.subscribe("imu", 1000, imuCallback);
+
+  // Spin until the IMU data averages out for the desired number of iterations.
+  while(NUM_IMU_CALLBACKS <= MAX_IMU_CALLBACKS)
+  {
+    ros::spinOnce();
+  }
+
+  // This time delay allows you to start the program and walk away if you're in view of the Kinect.
+  ROS_INFO("You now have %d seconds to back away!",CAM_DELAY);
+  sleep(CAM_DELAY);
+  ROS_INFO("Time is up!");
+
   // Create a subscriber on the depth topic.
-  ros::Subscriber sub = n.subscribe("camera/depth/points2", 1000, pcdCallback);
+  ros::Subscriber pcd_sub = n.subscribe("camera/depth/points2", 1000, pcdCallback);
 
   // Waits for new data. Then, the callback function is executed.
   while((!DATA_FULL) && ros::ok())
   {
     ros::spinOnce();
   }
+
+  ROS_INFO("x=%f, y=%f, z=%f",X,Y,Z);
 
   return (0);
 }
@@ -253,3 +285,77 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
     }
   }
 }
+
+void imuCallback(const sensor_msgs::Imu::Ptr msg)
+{
+  // Our x and y angles.
+  float x_angle = 0;
+  float y_angle = 0;
+
+  // Calculate +/- 90 degree angles for x and y.
+  x_angle = (msg->linear_acceleration.x/GRAVITY)*90;
+  y_angle = (msg->linear_acceleration.y/GRAVITY)*90;
+
+  // Convert the angles to a +/- 360 degree angles with the x and y
+  // axes pointing in the correct direction as they are on the Kinect.
+  if((x_angle <= 0) && (y_angle >= 0))
+  {
+    x_angle = 0 - x_angle;
+    y_angle = 360 - y_angle;
+  }
+  else if((x_angle >= 0) && (y_angle >= 0))
+  {
+    x_angle = 360 - x_angle;
+    y_angle = 180 + y_angle;
+  }
+  else if((x_angle <= 0) && (y_angle <= 0))
+  {
+    x_angle = 90 - x_angle;
+    y_angle = 0 - y_angle;
+  }
+  else if((x_angle >= 0) && (y_angle <= 0))
+  {
+    x_angle = 180 + x_angle;
+    y_angle = 180 + y_angle;
+  }
+
+  // Find the magnitude of the acceleration.
+  float accel_magnitude = (sin(DEG_TO_RAD*x_angle) + sin(DEG_TO_RAD*y_angle));
+
+  // If we aren't level, move the kinect tilt motor.
+  // If we are level, begin averaging the IMU values.
+  if((-1*accel_magnitude) < GRAVITY_THRESHOLD)
+  {
+    // Set the tilt angle to 0.
+    std_msgs::Float64 tilt;
+    tilt.data = 0.0;
+    TILT_PUB.publish(tilt);
+  }
+  else
+  {
+    if(NUM_IMU_CALLBACKS == 0)
+    {
+      // If the global x y and z values are empty, fill them.
+      X = msg->linear_acceleration.x;
+      Y = msg->linear_acceleration.y;
+      Z = msg->linear_acceleration.z;
+    }
+    else
+    {
+      // Average the new value with the last value.
+      X = (X + msg->linear_acceleration.x)/2.0;
+      Y = (Y + msg->linear_acceleration.y)/2.0;
+      Z = (Z + msg->linear_acceleration.z)/2.0;
+    }
+
+    // Increment the number of IMU callbacks we have used for averaging.
+    NUM_IMU_CALLBACKS++;
+  }
+}
+
+
+
+
+
+
+
