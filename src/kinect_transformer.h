@@ -28,6 +28,10 @@
 // The file that the file names and parameters are read from.
 #define PTS_INFO_FILE ("pts_info_file.txt")
 
+// The log file that keeps track of all of the pts files that have been taken
+// and their estimated x and z rotational parameters.
+#define PTS_LOG_FILE ("pts_log_file.txt")
+
 // The folders that all of the files are separated into.
 // These file folders are assumed to be in the root package directory.
 #define PTS_IN_FOLDER ("individual_pts")
@@ -50,7 +54,7 @@
 #define	TAB_SIZE (2)
 
 // The delay time in seconds between when the program starts and when a cloud is taken.
-#define CAM_DELAY (5)
+#define CAM_DELAY (10)
 
 // The number of IMU callback iterations we do before deciding upon IMU values.
 #define MAX_IMU_CALLBACKS (100)

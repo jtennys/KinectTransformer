@@ -49,6 +49,12 @@ int main(int argc, char** argv)
   // Store the path to the root package directory given by the launch file.
   FILE_PATH = argv[2];
 
+  // Store the translational parameters and the y rotation.
+  float x = atof(argv[3]);
+  float y = atof(argv[4]);
+  float z = atof(argv[5]);
+  float Y = atof(argv[6]);
+
   // Initializes the node as a kinect listener.
   ros::init(argc, argv, "kinect_to_pts");
 
@@ -102,7 +108,56 @@ int main(int argc, char** argv)
     ros::spinOnce();
   }
 
-  ROS_INFO("x=%f, z=%f",X,Z);
+  // Change directories back to the root.
+  if(chdir(FILE_PATH.c_str()) == 0)
+  {
+    // Try to open the log file.
+    std::ifstream log_test(PTS_LOG_FILE);
+
+    // If the log file exists, simply close it. Otherwise, create the file and print the header.
+    if(log_test.is_open())
+    {
+      log_test.close();
+    }
+    else
+    {
+      std::ofstream log_header(PTS_LOG_FILE);
+
+      log_header << "This log file contains data that can be copied and pasted into the " << PTS_INFO_FILE << "\n"
+                 << "file and edited by a user. The units are in meters and degrees, and the format is as follows:\n\n"
+                 << "File name, x translation, y translation, z translation, x rotation, y rotation, z rotation\n\n";
+
+      log_header.close();
+    }
+
+    // Open an output file stream to the log file in append mode.
+    std::ofstream log_out(PTS_LOG_FILE, ios::app);
+
+    // Append the data that we know as well as placeholders for data we don't.
+    log_out << FILE_NAME << "," << x << "," << y << "," << z << ","
+                                << X << "," << Y << "," << Z << "\n";
+
+    // Close the output file.
+    log_out.close();
+
+    // Try to open the point info file.
+    std::ifstream pts_info_test(PTS_INFO_FILE);
+
+    // If the info file exists, simply close it. Otherwise, print one line to it just so it exists.
+    if(pts_info_test.is_open())
+    {
+      pts_info_test.close();
+    }
+    else
+    {
+      std::ofstream pts_info(PTS_INFO_FILE);
+
+      pts_info << FILE_NAME << "," << x << "," << y << "," << z << ","
+                                   << X << "," << Y << "," << Z << "\n";
+
+      pts_info.close();
+    }
+  }
 
   return (0);
 }
@@ -274,32 +329,6 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
       else
       {
         ROS_INFO("Program failed, likely due to improper read/write permissions in this directory.");
-      }
-    }
-
-    // If we're in the right directory, check to see if we can read the pts info file.
-    // If we can't, create a placeholder file of the correct name with placeholder values.
-    if(good_dir == 0)
-    {
-      // Open an input stream to the pts info file.
-      std::ifstream pts_info_check(PTS_INFO_FILE);
-
-      if(pts_info_check.is_open())
-      {
-        // If opening the file for reading was a success, close it.
-        pts_info_check.close();
-      }
-      else
-      {
-        // If we could not open the file, we assume it's missing, and we create it.
-        std::ofstream pts_info_check(PTS_INFO_FILE);
-
-        // Fill the pts info file with a placeholder data set. The format is:
-        // File name without extension, x, y, z in meters, x angle, y angle, z angle in degrees.
-        pts_info_check << "placeholder,0,0,0,0,0,0\n";
-
-        // Close the file.
-        pts_info_check.close();
       }
     }
   }

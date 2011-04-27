@@ -1,6 +1,10 @@
 <launch>
   <include file="$(find openni_camera)/launch/openni_kinect.launch"/>
   <arg name="filename" default="test_cloud"/>
+  <arg name="x" default="0"/>
+  <arg name="y" default="0"/>
+  <arg name="z" default="0"/>
+  <arg name="y_rot" default="0"/>
   <node pkg="kinect_aux" name="aux1" type="kinect_aux_node"/>
-  <node pkg="kinect_transformer" name="pts1" type="kinect_pts" args="$(arg filename) $(find kinect_transformer)" output="screen"/>
+  <node pkg="kinect_transformer" name="pts1" type="kinect_pts" args="$(arg filename) $(find kinect_transformer) $(arg x) $(arg y) $(arg z) $(arg y_rot)" output="screen"/>
 </launch>
