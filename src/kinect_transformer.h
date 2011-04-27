@@ -43,6 +43,7 @@
 
 // These defines are used to convert units so users can input familiar units.
 #define DEG_TO_RAD (0.0174533)
+#define RAD_TO_DEG (57.2957795)
 
 // This is the size of the tabbed white space that we use
 // to signify that we are inside of a certain vrml scope.
@@ -54,11 +55,11 @@
 // The number of IMU callback iterations we do before deciding upon IMU values.
 #define MAX_IMU_CALLBACKS (100)
 
-// Gravity
-#define GRAVITY (9.80665)
+// Desired tilt angle error in degrees.
+#define TILT_TOLERANCE (1)
 
-// The gravity threshold value that we have to exceed to assume the kinect is parallel with the ground.
-#define GRAVITY_THRESHOLD (0.95)
+// The filter coefficient of the previous data in our quaternion filter.
+#define PREV_COEFF (0.6)
 
 // The templated pcl object type.
 typedef pcl::PointXYZRGB PointT;
