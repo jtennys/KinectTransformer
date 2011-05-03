@@ -65,6 +65,12 @@
 // The filter coefficient of the previous data in our quaternion filter.
 #define PREV_COEFF (0.6)
 
+// The number of bytes for each field of the PointCloud2 message.
+#define BYTES_PER_X (4)
+#define BYTES_PER_Y (4)
+#define BYTES_PER_Z (4)
+#define BYTES_PER_RGB (3)
+
 // The templated pcl object type.
 typedef pcl::PointXYZRGB PointT;
 

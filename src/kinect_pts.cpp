@@ -30,7 +30,7 @@ float Z = 0;
 
 // Accepts a point cloud of type XYZRGB from the callback function and saves
 // its RGB data to a file with the defined image extension.
-void saveImage(const pcl::PointCloud<PointT>::Ptr cloud);
+void saveImage(IplImage* img);
 
 // This function is called when the kinect driver pushes out a point cloud message.
 void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg);
@@ -162,7 +162,7 @@ int main(int argc, char** argv)
   return (0);
 }
 
-void saveImage(const pcl::PointCloud<PointT>::Ptr cloud)
+void saveImage(IplImage* img)
 {
   // Integer return value when attempting to change a directory.
   int good_dir = 0;
@@ -190,22 +190,6 @@ void saveImage(const pcl::PointCloud<PointT>::Ptr cloud)
     // If we are in the right directory, save the image file.
     if(good_dir == 0)
     {
-      // Create a blank cv image object.
-      IplImage* img = cvCreateImage(cvSize(cloud->width,cloud->height), IPL_DEPTH_8U, 3);
-
-      // Populate the image object with rgb data from the point cloud we received.
-      for(unsigned int i = 0; i < cloud->height; i++)
-      {
-        for(unsigned int j = 0; j < cloud->width; j++)
-        {
-          // Store the floating point rgb value as an integer for bit masking.
-          int rgb = *reinterpret_cast<int*>(&cloud->points[i*cloud->width + j].rgb);
-          ((uchar *)(img->imageData + i*img->widthStep))[j*img->nChannels + 0] = (rgb & 0xff);
-          ((uchar *)(img->imageData + i*img->widthStep))[j*img->nChannels + 1] = ((rgb >> 8) & 0xff);
-          ((uchar *)(img->imageData + i*img->widthStep))[j*img->nChannels + 2] = ((rgb >> 16) & 0xff);
-        }
-      }
-
       // Create a string and add the file name and its desired image extension type.
       std::string img_filename = FILE_NAME;
       img_filename += ".";
@@ -213,9 +197,6 @@ void saveImage(const pcl::PointCloud<PointT>::Ptr cloud)
 
       // Save the image object to a file with the given name.
       cvSaveImage(img_filename.c_str(),img);
-
-      // Delete the image object.
-      cvReleaseImage(&img);
     }
     else
     {
@@ -229,16 +210,13 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
   // The return value of an attempt to change or make directory is stored in this.
   int good_dir = 0;
 
+  // Our image object.
+  IplImage* img = cvCreateImage(cvSize(msg->width,msg->height), IPL_DEPTH_8U, 3);
+
   // We first check if data is full because even if we finish and save the file,
   // queued callback data continues to execute and save files.
   if(!DATA_FULL)
   {
-    // Create an empty cloud.
-    pcl::PointCloud<PointT>::Ptr cloud (new pcl::PointCloud<PointT> ());
-
-    // Fill the empty cloud with data from the kinect.
-    pcl::fromROSMsg(*msg,*cloud);
-
     // If our root path is correct, continue.
     if(chdir(FILE_PATH.c_str()) == 0)
     {
@@ -261,6 +239,11 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
       // If we are now in the correct directory, write the data to disk.
       if(good_dir == 0)
       {
+        // The x,y,z depth information for a single point is stored in these.
+        float* x_depth;
+        float* y_depth;
+        float* z_depth;
+
         // Create the file name with extension.
         std::string pts_file = FILE_NAME;
         pts_file += ".";
@@ -270,19 +253,69 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
         std::ofstream pts_out(pts_file.c_str());
 
         // Write the point cloud data to disk.
-        for(unsigned int i = 0; i < cloud->points.size(); i++)
+        for(unsigned int y = 0; y < msg->height; y++)
         {
-          // If x y and z are numbers, we print the line.
-          if(!((cloud->points[i].x != cloud->points[i].x) ||
-               (cloud->points[i].y != cloud->points[i].y) ||
-               (cloud->points[i].z != cloud->points[i].z)))
+          for(unsigned int x = 0; x < msg->width; x++)
           {
-            // Print the distance information to the pts file followed by a trash buffer value.
-            pts_out << cloud->points[i].x << " " << cloud->points[i].y << " " << cloud->points[i].z << " 0 ";
+            // The byte values for the point are stored in these arrays.
+            unsigned char x_bytes[BYTES_PER_X];
+            unsigned char y_bytes[BYTES_PER_Y];
+            unsigned char z_bytes[BYTES_PER_Z];
+            unsigned char rgb[BYTES_PER_RGB];
 
-            // Print the RGB information and finish with a new line character.
-            int rgb = *reinterpret_cast<int*>(&cloud->points[i].rgb);
-            pts_out << ((rgb >> 16) & 0xff) << " " << ((rgb >> 8) & 0xff) << " " << (rgb & 0xff) << "\n";
+            // Loop through the number of fields, which should be four for x,y,z,rgb.
+            for(unsigned int i = 0; i < msg->fields.size(); i++)
+            {
+              // Check to see which field we are looking at before extracting the data.
+              if(msg->fields[i].name == "x")
+              {
+                for(unsigned int j = 0; j < BYTES_PER_X; j++)
+                {
+                  x_bytes[j] = msg->data[j + x*msg->point_step + y*msg->row_step + msg->fields[i].offset];
+                }
+              }
+              else if(msg->fields[i].name == "y")
+              {
+                for(unsigned int j = 0; j < BYTES_PER_Y; j++)
+                {
+                  y_bytes[j] = msg->data[j + x*msg->point_step + y*msg->row_step + msg->fields[i].offset];
+                }
+              }
+              else if(msg->fields[i].name == "z")
+              {
+                for(unsigned int j = 0; j < BYTES_PER_Z; j++)
+                {
+                  z_bytes[j] = msg->data[j + x*msg->point_step + y*msg->row_step + msg->fields[i].offset];
+                }
+              }
+              else if(msg->fields[i].name == "rgb")
+              {
+                for(unsigned int j = 0; j < BYTES_PER_RGB; j++)
+                {
+                  rgb[j] = msg->data[j + x*msg->point_step + y*msg->row_step + msg->fields[i].offset];
+                }
+              }
+            }
+
+            // Convert the byte pointers to float pointers and store them.
+            x_depth = (float*)x_bytes;
+            y_depth = (float*)y_bytes;
+            z_depth = (float*)z_bytes;
+
+            // If x y and z are numbers, we print the line.
+            if(!((*x_depth != *x_depth) || (*y_depth != *y_depth) || (*z_depth != *z_depth)))
+            {
+              // Print the distance information to the pts file followed by a trash buffer value.
+              pts_out << *x_depth << " " << *y_depth << " " << *z_depth << " 0 ";
+
+              // Print the RGB information and finish with a new line character.
+              pts_out << (unsigned int)rgb[2] << " " << (unsigned int)rgb[1] << " " << (unsigned int)rgb[0] << "\n";
+            }
+
+            // Store the image data.
+            ((uchar *)(img->imageData + y*img->widthStep))[x*img->nChannels + 0] = rgb[0];
+            ((uchar *)(img->imageData + y*img->widthStep))[x*img->nChannels + 1] = rgb[1];
+            ((uchar *)(img->imageData + y*img->widthStep))[x*img->nChannels + 2] = rgb[2];
           }
         }
 
@@ -290,7 +323,7 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
         pts_out << "\n";
 
         // Write the RGB image to disk.
-        saveImage(cloud);
+        saveImage(img);
 
         // We are done running the program.
         ROS_INFO("Done!");
@@ -332,6 +365,9 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
       }
     }
   }
+
+  // Delete the image object.
+  cvReleaseImage(&img);
 }
 
 void tiltCallback(const std_msgs::Float64::Ptr msg)

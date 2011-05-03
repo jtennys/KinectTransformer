@@ -31,7 +31,7 @@ int main(int argc, char** argv)
   // Create the pts file.
   if(writePTS(pts_file.c_str(), ROOT_PATH.c_str()) == 0)
   {
-    ROS_INFO("The point files have been transformed and combined!",PTS_INFO_FILE);
+    ROS_INFO("The point files have been transformed and combined!");
     ROS_INFO("Their resulting point file was saved at %s/%s/%s!",ROOT_PATH.c_str(),PTS_OUT_FOLDER,pts_file.c_str());
 
     // Now we convert the pts file to vrml.
