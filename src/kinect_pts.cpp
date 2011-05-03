@@ -1,6 +1,6 @@
 // Filename: kinect_pts.cpp
 // Author: Jason Tennyson
-// Date: 4-25-11
+// Date: 5-3-11
 // 
 // This file is designed to be used after the openni_camera driver is launched
 // for use with the Microsoft Kinect.  It reads a single point cloud message

@@ -1,6 +1,6 @@
 // Filename: kinect_transformer.cpp
 // Author: Jason Tennyson
-// Date: 4-25-11
+// Date: 5-3-11
 // 
 // This file reads a text file that contains file names.
 // The file names point to point clouds that have previously
@@ -12,8 +12,8 @@
 // Transforms and merges the individual pts data into a combined pts file.
 int writePTS(const char* pts_filename, const char* root);
 
-// Simply takes the combined pts file output and converts it to vrml.
-int writeVRML(const char* pts_filename, const char* vrml_filename, const char* root);
+// Transforms the point files and writes them as seperate fields to the vrml file.
+int writeVRML(const char* vrml_filename, const char* root);
 
 int main(int argc, char** argv)
 {
@@ -28,16 +28,17 @@ int main(int argc, char** argv)
   // Store the root package path argument sent by the launch file.
   const std::string ROOT_PATH = argv[2];
 
+  ROS_INFO("Transforming the point data files listed in %s!",PTS_INFO_FILE);
+
   // Create the pts file.
   if(writePTS(pts_file.c_str(), ROOT_PATH.c_str()) == 0)
   {
     ROS_INFO("The point files have been transformed and combined!");
     ROS_INFO("Their resulting point file was saved at %s/%s/%s!",ROOT_PATH.c_str(),PTS_OUT_FOLDER,pts_file.c_str());
 
-    // Now we convert the pts file to vrml.
-    if(writeVRML(pts_file.c_str(), vrml_file.c_str(), ROOT_PATH.c_str()) == 0)
+    // Now we convert the pts to vrml.
+    if(writeVRML(vrml_file.c_str(), ROOT_PATH.c_str()) == 0)
     {
-      ROS_INFO("The output point file has been translated into the vrml format!");
       ROS_INFO("Their resulting vrml file was saved at %s/%s/%s!",ROOT_PATH.c_str(),VRML_FOLDER,vrml_file.c_str());
     }
   }
@@ -63,7 +64,7 @@ int writePTS(const char* pts_filename, const char* root)
   {
     if(chdir(PTS_INFO_FOLDER) == 0)
     {
-      // If we are in the right directory, connect to the PCD info file.
+      // If we are in the right directory, connect to the PTS info file.
       pts_info.open(PTS_INFO_FILE);
 
       // Check to see that we opened the file.
@@ -135,8 +136,6 @@ int writePTS(const char* pts_filename, const char* root)
   {
     if(chdir(PTS_IN_FOLDER) == 0)
     {
-      ROS_INFO("Transforming the point data files listed in %s!",PTS_INFO_FILE);
-
       // Read pts files until we have read them all.
       do
       {
@@ -244,12 +243,8 @@ int writePTS(const char* pts_filename, const char* root)
   return 0;
 }
 
-int writeVRML(const char* pts_filename, const char* vrml_filename, const char* root)
+int writeVRML(const char* vrml_filename, const char* root)
 {
-  // Our file streams.
-  std::ifstream pts_in;
-  std::ofstream vrml_out;
-
   // The return value of a directory change or creation.
   int good_dir = 0;
 
@@ -257,24 +252,29 @@ int writeVRML(const char* pts_filename, const char* vrml_filename, const char* r
   // The number of spaces starts at 0 and varies by +/- TAB_SIZE defined above.
   int numSpaces = 0;
 
+  // Here are our file streams.
+  std::ifstream pts_info;
+  std::ifstream pts_in;
+  std::ofstream vrml_out;
+
   // Change directories to the root folder.
   if(chdir(root) == 0)
   {
-    if(chdir(PTS_OUT_FOLDER) == 0)
+    if(chdir(PTS_INFO_FOLDER) == 0)
     {
-      // If we are in the right directory, connect to the pts file.
-      pts_in.open(pts_filename);
+      // If we are in the right directory, connect to the PTS info file.
+      pts_info.open(PTS_INFO_FILE);
 
       // Check to see that we opened the file.
-      if(!pts_in.is_open())
+      if(!pts_info.is_open())
       {
-        ROS_INFO("Failed to open %s for reading!",pts_filename);
+        ROS_INFO("Failed to open %s for reading!",PTS_INFO_FILE);
         return -1;
       }
     }
     else
     {
-      ROS_INFO("Program failed! Could not change directories to %s/%s!",root,PTS_OUT_FOLDER);
+      ROS_INFO("Program failed! Could not change directories to %s/%s!",root,PTS_INFO_FOLDER);
     }
   }
   else
@@ -330,97 +330,165 @@ int writeVRML(const char* pts_filename, const char* vrml_filename, const char* r
       for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
       vrml_out << "children [\n";
       numSpaces += TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "Shape {\n";
-      numSpaces += TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "geometry PointSet {\n";
-      numSpaces += TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "coord Coordinate {\n";
-      numSpaces += TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "point [\n";
-      numSpaces += TAB_SIZE;
 
-      // Read in the lines from the pts file and format them for the vrml file.
-      do
+      // Change directories to the root folder.
+      if(chdir(root) == 0)
       {
-        // This stores the current line we're working with from the text file.
-        std::string pts_line;
-
-        // Read a line.
-        getline(pts_in, pts_line);
-
-        // Break up the parameters in the line of point data.
-        std::vector<std::string> params;
-        boost::split(params,pts_line,boost::is_any_of(" "));
-
-        // If we have 7 values, we assume valid data.
-        if(params.size() == 7)
+        if(chdir(PTS_IN_FOLDER) == 0)
         {
-          // Print only the points to the vrml file.
-          for(int k = 0; k < numSpaces; k++) { vrml_out << " "; }
-          vrml_out << params[0] << " " << params[1] << " " << params[2] << ",\n";
+          // Read pts info until we have read it all.
+          do
+          {
+            // This stores the current line we're working with from the pts info file.
+            std::string pts_info_line;
+
+            // Grab a line of pts information from the info file.
+            getline(pts_info, pts_info_line);
+
+            // Create an array of string parameters from the info we obtained.
+            // All of the info should be comma delimited in the file.
+            std::vector<std::string> params;
+            boost::split(params,pts_info_line,boost::is_any_of(","));
+
+            // If we have a valid line of 7 parameters, create a point set.
+            if(params.size() == 7)
+            {
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "Shape {\n";
+              numSpaces += TAB_SIZE;
+              // Print the beginning brackets of the point set.
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "geometry PointSet {\n";
+              numSpaces += TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "coord Coordinate {\n";
+              numSpaces += TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "point [\n";
+              numSpaces += TAB_SIZE;
+
+              // The first parameter of an info line should be the file name.
+              std::string filename = params[0];
+              filename += ".";
+              filename += PTS_EXTENSION;
+
+              // Convert the separated offset parameters from the text file to floats.
+              float x = atof(params[1].c_str());
+              float y = atof(params[2].c_str());
+              float z = atof(params[3].c_str());
+              float x_theta = atof(params[4].c_str());
+              float y_theta = atof(params[5].c_str());
+              float z_theta = atof(params[6].c_str());
+
+              // Create a transformation object based on the data we received.
+              Eigen::Affine3f transform;
+              pcl::getTransformation (x, y, z, (DEG_TO_RAD*x_theta), (DEG_TO_RAD*y_theta), (DEG_TO_RAD*z_theta), transform);
+
+              // Open the pts file under this file name.
+              pts_in.open(filename.c_str());
+
+              // Check to see that we opened the file.
+              if(!pts_in.is_open())
+              {
+                ROS_INFO("Failed to open %s for reading!",filename.c_str());
+                return -1;
+              }
+
+              // Manipulate the input pts and store them.
+              do
+              {
+                // Grab a point from the pts file.
+                std::string pts_line;
+                getline(pts_in, pts_line);
+
+                // Create an array of string parameters from the info we obtained.
+                std::vector<std::string> pt_info;
+                boost::split(pt_info,pts_line,boost::is_any_of(" "));
+
+                // If we have a valid number of information parameters about the point, proceed
+                if(pt_info.size() == 7)
+                {
+                  // Create and populate the temporary point.
+                  PointT tempPoint;
+                  tempPoint.x = atof(pt_info[0].c_str());
+                  tempPoint.y = atof(pt_info[1].c_str());
+                  tempPoint.z = atof(pt_info[2].c_str());
+
+                  // Transform the point and store it back.
+                  tempPoint = pcl::transformXYZ(transform, tempPoint);
+
+                  // Print the distance information to the vrml file followed by a comma and new line.
+                  for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+                  vrml_out << tempPoint.x << " " << tempPoint.y << " " << tempPoint.z << ",\n";
+                }
+              }while(!pts_in.eof());
+
+              // Wrap the other side of the points list with their end brackets.
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "] # end of point\n";
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "} # end of Coordinate\n";
+
+              // Reset the pts_in reader.
+              pts_in.clear();
+              pts_in.seekg(0);
+
+              // Print the colors field indicators.
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "color Color {\n";
+              numSpaces += TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "color [\n";
+              numSpaces += TAB_SIZE;
+
+              // Read and extract the colors out of this pts file to pair them with the points.
+              do
+              {
+                // Grab a point from the pts file.
+                std::string pts_line;
+                getline(pts_in, pts_line);
+
+                // Create an array of string parameters from the info we obtained.
+                std::vector<std::string> pt_info;
+                boost::split(pt_info,pts_line,boost::is_any_of(" "));
+
+                if(pt_info.size() == 7)
+                {
+                  // Print the color information to the vrml file followed by a comma and new line.
+                  for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+                  vrml_out << atof(pt_info[4].c_str())/255.0 << " "
+                           << atof(pt_info[5].c_str())/255.0 << " "
+                           << atof(pt_info[6].c_str())/255.0 << ",\n";
+                }
+              }while(!pts_in.eof());
+
+              // Wrap the other side of the colors list with its end brackets.
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "] # end of color\n";
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "} # end of Color\n";
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "} # end of PointSet\n";
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "} # end of Shape\n";
+
+              // Close the input pts file.
+              if(pts_in.is_open())
+              {
+                pts_in.close();
+              }
+            }
+          }while(!pts_info.eof());
         }
-      }while(!pts_in.eof());
-
-      // Reset the pts file reader to the beginning of the file.
-      pts_in.clear();
-      pts_in.seekg(0);
-
-      // Wrap the other side of the points list with their end brackets.
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "] # end of point\n";
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "} # end of Coordinate\n";
-
-      // Print the colors field indicators.
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "color Color {\n";
-      numSpaces += TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "color [\n";
-      numSpaces += TAB_SIZE;
-
-      // Read in a line from the pts file and format it for the vrml file.
-      do
-      {
-        // This stores the current line we're working with from the text file.
-        std::string pts_line;
-
-        // Read a line.
-        getline(pts_in, pts_line);
-
-        // Break up the parameters in the line of point data.
-        std::vector<std::string> params;
-        boost::split(params,pts_line,boost::is_any_of(" "));
-
-        if(params.size() == 7)
-        {
-          // Print only the colors to the vrml file.
-          for(int k = 0; k < numSpaces; k++) { vrml_out << " "; }
-          vrml_out << atof(params[4].c_str())/255.0 << " "
-                   << atof(params[5].c_str())/255.0 << " "
-                   << atof(params[6].c_str())/255.0 << ",\n";
-        }
-      }while(!pts_in.eof());
+      }
 
       // Print the end brackets for all of the fields that we opened.
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "] # end of color\n";
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "} # end of Color\n";
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "} # end of PointSet\n";
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "} # end of Shape\n";
       numSpaces -= TAB_SIZE;
       for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
       vrml_out << "] # end of children\n";
