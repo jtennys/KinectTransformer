@@ -322,14 +322,7 @@ int writeVRML(const char* vrml_filename, const char* root)
       for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
       vrml_out << "children [\n";
       numSpaces += TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "Transform {\n";
-      numSpaces += TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "scale 1 1 1\n";
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "children [\n";
-      numSpaces += TAB_SIZE;
+      
 
       // Change directories to the root folder.
       if(chdir(root) == 0)
@@ -353,6 +346,14 @@ int writeVRML(const char* vrml_filename, const char* root)
             // If we have a valid line of 7 parameters, create a point set.
             if(params.size() == 7)
             {
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "Transform {\n";
+              numSpaces += TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "scale 1 1 1\n";
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "children [\n";
+              numSpaces += TAB_SIZE;
               for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
               vrml_out << "Shape {\n";
               numSpaces += TAB_SIZE;
@@ -477,6 +478,12 @@ int writeVRML(const char* vrml_filename, const char* root)
               numSpaces -= TAB_SIZE;
               for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
               vrml_out << "} # end of Shape\n";
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "] # end of children\n";
+              numSpaces -= TAB_SIZE;
+              for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
+              vrml_out << "} # end of Transform\n";
 
               // Close the input pts file.
               if(pts_in.is_open())
@@ -489,12 +496,6 @@ int writeVRML(const char* vrml_filename, const char* root)
       }
 
       // Print the end brackets for all of the fields that we opened.
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "] # end of children\n";
-      numSpaces -= TAB_SIZE;
-      for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
-      vrml_out << "} # end of Transform\n";
       numSpaces -= TAB_SIZE;
       for(int i = 0; i < numSpaces; i++) { vrml_out << " "; }
       vrml_out << "] # end of children\n";

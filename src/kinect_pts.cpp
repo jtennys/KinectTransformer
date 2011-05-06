@@ -54,6 +54,8 @@ int main(int argc, char** argv)
   float y = atof(argv[4]);
   float z = atof(argv[5]);
   float Y = atof(argv[6]);
+  int adjust = atoi(argv[7]);
+  float pitch = atof(argv[8]);
 
   // Initializes the node as a kinect listener.
   ros::init(argc, argv, "kinect_to_pts");
@@ -61,28 +63,32 @@ int main(int argc, char** argv)
   // Create an empty node handle.
   ros::NodeHandle n;
 
-  // Loop rate for the publisher in Hz.
-  ros::Rate loop_rate(1);
-
-  // Create a publisher on the tilt_angle topic so we can set the kinect motor angle.
-  ros::Publisher tilt_pub = n.advertise<std_msgs::Float64>("tilt_angle", 1000);
-
-  // Create a subscriber on the angle topic so we can read the current motor angle.
-  ros::Subscriber tilt_sub = n.subscribe("cur_tilt_angle", 1000, tiltCallback);
-
-  ROS_INFO("Aligning the Kinect to be parallel with the ground...");
-
-  // Loop and tilt until we are parallel with the ground.
-  while(abs(TILT) > TILT_TOLERANCE)
+  // If the user is allowing the Kinect to auto-adjust, move to the correct pitch angle.
+  if(adjust)
   {
-    // Publish a tilt message.
-    std_msgs::Float64 tilt_msg;
-    tilt_msg.data = 0.0;
-    tilt_pub.publish(tilt_msg);
+    // Loop rate for the publisher in Hz.
+    ros::Rate loop_rate(1);
 
-    // Spin and look for a new angle.
-    ros::spinOnce();
-    loop_rate.sleep();
+    // Create a publisher on the tilt_angle topic so we can set the kinect motor angle.
+    ros::Publisher tilt_pub = n.advertise<std_msgs::Float64>("tilt_angle", 1000);
+
+    // Create a subscriber on the angle topic so we can read the current motor angle.
+    ros::Subscriber tilt_sub = n.subscribe("cur_tilt_angle", 1000, tiltCallback);
+
+    ROS_INFO("Aligning the Kinect to be parallel with the ground...");
+
+    // Loop and tilt until we are parallel with the ground.
+    while(abs(TILT-pitch) > TILT_TOLERANCE)
+    {
+      // Publish a tilt message.
+      std_msgs::Float64 tilt_msg;
+      tilt_msg.data = pitch;
+      tilt_pub.publish(tilt_msg);
+
+      // Spin and look for a new angle.
+      ros::spinOnce();
+      loop_rate.sleep();
+    }
   }
 
   // This time delay allows you to start the program and walk away if you're in view of the Kinect.
@@ -306,7 +312,7 @@ void pcdCallback(const sensor_msgs::PointCloud2::Ptr msg)
             if(!((*x_depth != *x_depth) || (*y_depth != *y_depth) || (*z_depth != *z_depth)))
             {
               // Print the distance information to the pts file followed by a trash buffer value.
-              pts_out << *x_depth << " " << *y_depth << " " << *z_depth << " 0 ";
+              pts_out << (*x_depth + X_OFFSET) << " " << (*y_depth + Y_OFFSET) << " " << (*z_depth + Z_OFFSET) << " 0 ";
 
               // Print the RGB information and finish with a new line character.
               pts_out << (unsigned int)rgb[2] << " " << (unsigned int)rgb[1] << " " << (unsigned int)rgb[0] << "\n";

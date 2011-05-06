@@ -5,6 +5,8 @@
   <arg name="y" default="0"/>
   <arg name="z" default="0"/>
   <arg name="y_rot" default="0"/>
+  <arg name="adjust" default="1"/>
+  <arg name="pitch" default="0"/>
   <node pkg="kinect_aux" name="aux1" type="kinect_aux_node"/>
-  <node pkg="kinect_transformer" name="pts1" type="kinect_pts" args="$(arg filename) $(find kinect_transformer) $(arg x) $(arg y) $(arg z) $(arg y_rot)" output="screen"/>
+  <node pkg="kinect_transformer" name="pts1" type="kinect_pts" args="$(arg filename) $(find kinect_transformer) $(arg x) $(arg y) $(arg z) $(arg y_rot) $(arg adjust) $(arg pitch)" output="screen"/>
 </launch>

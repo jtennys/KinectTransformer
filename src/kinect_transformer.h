@@ -62,7 +62,13 @@
 // Desired tilt angle error in degrees.
 #define TILT_TOLERANCE (1)
 
-// The filter coefficient of the previous data in our quaternion filter.
+// These are the physical offsets from the front Kinect's face to its
+// rotational center at its base.
+#define X_OFFSET (0)
+#define Y_OFFSET (0.033)
+#define Z_OFFSET (-.03065)
+
+// The filter coefficient of the previous data in our IMU filter.
 #define PREV_COEFF (0.6)
 
 // The number of bytes for each field of the PointCloud2 message.
